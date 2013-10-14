@@ -10,6 +10,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 
@@ -84,40 +85,18 @@ public class DownloadTask implements Runnable {
             m_destination.delete();
         } else {
             // download the file
+        	final GetObjectRequest request =
+        		new GetObjectRequest(m_s3objectSummary.getBucketName(), m_s3objectSummary.getKey());
+        	request.setRange(m_destination.length(), totalSize - 1);
+        	
             try (
                 final OutputStream out = new FileOutputStream(m_destination, true);
-                final InputStream in = object.getObjectContent()
+                final InputStream in = m_s3.getObject(request).getObjectContent();
             ) {
-                long downloadedSize = 0;
+                long downloadedSize = m_destination.length();
                 long lastProgressMessage = System.currentTimeMillis();
-                long lastDownloadedSize = 0;
+                long lastDownloadedSize = downloadedSize;
     
-                // skip over the stuff that's already in the file
-                long toSkip = m_destination.length();
-                while(toSkip > 0) {
-                    final long skipped = in.skip(Math.min(toSkip, 1024 * 1024));
-                    toSkip -= skipped;
-                    
-                    downloadedSize += skipped;
-                    final long currentTime = System.currentTimeMillis();
-                    if(currentTime - lastProgressMessage >= PROGRESS_MESSAGE_INTERVAL) {
-                        final double fractionDownloaded =
-                            (double)downloadedSize / (double)totalSize;
-                        final double bytesSinceLast =
-                            downloadedSize - lastDownloadedSize;
-                        final double secondsSinceLast =
-                            (currentTime - lastProgressMessage) / 1000.0;
-                        s_log.info(
-                            String.format(
-                                "%s downloaded %.0f%% (%.1f kb/s) (skipping already downloaded part)",
-                                m_destination.getAbsolutePath(),
-                                100.0 * fractionDownloaded,
-                                (bytesSinceLast / 1024.0) / secondsSinceLast));
-                        lastDownloadedSize = downloadedSize;
-                        lastProgressMessage = currentTime;
-                    }
-                }
-                
                 final byte[] buffer = new byte[1024 * 1024];
                 while(true) {
                     final int read = in.read(buffer);
