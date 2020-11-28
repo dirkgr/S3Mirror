@@ -4,7 +4,7 @@
 
   <groupId>com.marvinalone</groupId>
   <artifactId>S3Mirror</artifactId>
-  <version>0.1</version>
+  <version>1.2</version>
   <packaging>jar</packaging>
 
   <name>S3Mirror</name>
